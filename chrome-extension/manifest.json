@@ -22,7 +22,6 @@
     {
       "run_at": "document_start",
       "matches": ["http://www.facebook.com/*","https://www.facebook.com/*"],
-      "css": ["mystyles.css"],
       "js": ["js/jquery-3.2.1.min.js","myscript.js"]
     }
   ]
