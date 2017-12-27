@@ -8,4 +8,6 @@ Even more people are getting tired of getting these notifications about people w
 This extension will add a button next to the Like button, to make it more accessible and available for you to just click.
 So whether you know about this feature, or would like others to stop adding "following" comments, install this light extension and help the world be a better place.
 
-The chrome extension is available in the webstore: https://chrome.google.com/webstore/detail/fb-get-notifications-shor/fkglmpomgfeocjhcacedncmigjhodpib
+The Chrome extension is available in the webstore: https://chrome.google.com/webstore/detail/fb-get-notifications-shor/fkglmpomgfeocjhcacedncmigjhodpib
+
+The Firefox addon is available at https://addons.mozilla.org/en-US/firefox/addon/fb-get-notifications-shortcut/
