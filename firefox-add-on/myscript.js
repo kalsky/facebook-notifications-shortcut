@@ -1,105 +1,181 @@
 
-var lang_rtl = false;
-var get_notifications_text = 'Get Notifications';
-var stop_notifications_text = 'Stop Notifications';
-var monitoring_selector = 'div[role="main"]';
+var monitoring_selector = 'a[title=".colony.yaml"]';
 
-function detectLang() {
-  var testid = $('#pinnedNav').data('testid');
-  if (testid && testid.includes('קיצורי'))
-  {
-    lang_rtl = true;
-    get_notifications_text = 'קבל התראות';
-    stop_notifications_text = 'עצור התראות';
-  }
-}
 
-function addFollow(followid, messageid)
-{
-  var link_text = get_notifications_text;
-  $('#'+followid+'_f').after('<a id="'+followid+'" aria-pressed="false" href="#" role="button" tabindex="2" data-testid="fbf-ufi-followlink" rel="async-post" ajaxify="/ajax/litestand/follow_post?message_id='+messageid+'&amp;follow=1">'+link_text+'</a>');
-  $('#'+followid+'_f').remove();
 
-  $('#'+followid).on('click', function(e) {
-      addUnfollow(followid, messageid);
-  });
-}
-function addUnfollow(followid, messageid)
-{
-  var link_text = stop_notifications_text;
-  $('#'+followid).after('<a id="'+followid+'_f" aria-pressed="false" href="#" role="button" tabindex="2" data-testid="fbf-ufi-followlink" rel="async-post" ajaxify="/ajax/litestand/follow_post?message_id='+messageid+'&amp;follow=0">'+link_text+'</a>');
-  $('#'+followid).remove();
+async function waitForActiveSandbox(sandbox_id) {
+  try {
+    browser.storage.sync.get(function(storageData){
+      var waitUrl = "https://2091a0234388.ngrok.io/colonize/sandbox_status/";
+      //console.log(waitUrl);
 
-  $('#'+followid+'_f').on('click', function(e) {
-      addFollow(followid, messageid);
-  });
-
-  return true;
-}
-
-function addFollowLinkToNode(node)
-{
-  var form=node.parents('form')[0];
-  //console.log(form);
-  if (form && form.length>0)
-  {
-    var id = "#" + form.id;
-    var messageid = $(id).find('input[name="ft_ent_identifier"]')[0].value.trim();
-    var followlink = $(id).find('a[data-testid="fbf-ufi-followlink"]');
-    if (followlink && followlink.length==0)
-    {
-      var followid = 'flink-' + form.id;
-      var link_text = get_notifications_text;
-      var icon_left_pos = (lang_rtl) ? '':'-';
-      node.after('<i style="background-image:url(/rsrc.php/v3/yX/r/1li7Ildh1mE.png);background-repeat:no-repeat;background-size:auto;background-position:-17px -1732px;width:16px;height:16px;left:'+icon_left_pos+'6px;top:9px;position:relative;" /><a id="'+followid+'" aria-pressed="false" href="#" role="button" tabindex="2" data-testid="fbf-ufi-followlink" rel="async-post" ajaxify="/ajax/litestand/follow_post?message_id='+messageid+'&amp;follow=1">'+link_text+'</a>');
-      $('#'+followid).on('click', function(e) {
-          addUnfollow(followid, messageid);
+      body = {
+                "sandbox_id": sandbox_id,
+                "colony_account": storageData.colony_account,
+                "colony_user": storageData.colony_user,
+                "colony_pass": storageData.colony_pass,
+                "colony_space": storageData.colony_space
+            }
+      
+      $.ajax({
+        url: waitUrl,
+        data: JSON.stringify(body),
+        type: 'POST',
+        dataType: 'json',
+        contentType: 'application/json',
+        success: function (data) {
+          //console.log(data);
+          outputDiv = $('#colonyOutput');
+          if (data.sandbox_status == 'Active')
+          {
+            outputDiv.append('<br/>');          
+            outputDiv.append('<span>Browse to the target <a href="'+ data.target +'" target="_blank">website</a></span>');
+          } 
+          else if (data.sandbox_status == 'Ended')
+          {
+            outputDiv.append('<br/>');
+            outputDiv.append('<span>The sandbox was ended.</span>');
+          }
+          else if (data.sandbox_status == 'Launching') {
+            outputDiv.append('.');
+            setTimeout(() => {
+              waitForActiveSandbox(sandbox_id);
+            }, 10000);            
+          }
+        }    
+      }).done(function() {
+        //btnAdded.disabled = false;
+        console.log('done');
+      }).fail(function(jqXHR, textStatus, error) {
+        console.log('failed');
+        console.log(error);
+        setTimeout(() => {
+          waitForActiveSandbox(sandbox_id);
+        }, 10000);
+        //btnAdded.disabled = false;
       });
-    }
+    });
+  } catch (err) {
+    console.log(err.message);
   }
 }
 
-function addUnFollowLinkToNode(node)
-{
-  var form=node.parents('form')[0];
-  //console.log(form);
-  if (form && form.length>0)
-  {
-    var id = "#" + form.id;
-    var messageid = $(id).find('input[name="ft_ent_identifier"]')[0].value.trim();
-    var followlink = $(id).find('a[data-testid="fbf-ufi-followlink"]');
-    if (followlink && followlink.length==0)
-    {
-      var followid = 'flink-' + form.id;
-      var link_text = stop_notifications_text;
-      var icon_left_pos = (lang_rtl) ? '':'-';
-      node.after('<i style="background-image:url(/rsrc.php/v3/yX/r/1li7Ildh1mE.png);background-repeat:no-repeat;background-size:auto;background-position:-17px -1732px;width:16px;height:16px;left:'+icon_left_pos+'6px;top:9px;position:relative;" /><a id="'+followid+'_f" aria-pressed="false" href="#" role="button" tabindex="2" data-testid="fbf-ufi-followlink" rel="async-post" ajaxify="/ajax/litestand/follow_post?message_id='+messageid+'&amp;follow=0">'+link_text+'</a>');
-      $('#'+followid).on('click', function(e) {
-          addFollow(followid, messageid);
-      });
-    }
+function colonize(thisRepo, duration) {
+  try {
+    browser.storage.sync.get(function(storageData){
+        //console.log(storageData);
+        var colonizeUrl = "https://2091a0234388.ngrok.io/colonize/";
+        //console.log(colonizeUrl);
+        var btnAdded = document.getElementById('colonizeBtn');
+        // console.log(btnAdded);
+        // btnAdded.disabled = true;
+        var outputDiv = document.getElementById('colonyOutput');
+        if (!outputDiv)
+        {
+          $('.file-navigation').after('<div class="Box mb-3 Box-body bg-gray-light" style="background-color:#212 !important" id="colonyOutput"></div>');
+          var outputDiv = $('#colonyOutput');
+          outputDiv.append('<span>Starting a new sandbox for you in CloudShell Colony...<span>');      
+        }
+
+        body = {
+              "repo_path": thisRepo,
+              "colony_account": storageData.colony_account,
+              "colony_user": storageData.colony_user,
+              "colony_pass": storageData.colony_pass,
+              "colony_space": storageData.colony_space,
+              "duration": duration
+          }
+        // console.log(body);
+
+        $.ajax({
+          url: colonizeUrl,
+          data: JSON.stringify(body),
+          type: 'POST',
+          dataType: 'json',
+          contentType: 'application/json',
+          success: function (data) {
+            //console.log(data);
+            outputDiv = $('#colonyOutput');
+            outputDiv.append('<br/>');
+            outputDiv.append('<span>A Colony Sandbox was created and is available <a href="'+ data.sandbox_url +'" target="_blank">here</a></span>');
+            outputDiv.append('<br/>');
+            confetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+            outputDiv.append('<span>Waiting for the public address, this might take a few minutes...</span>');
+            waitForActiveSandbox(data.sandbox_id);
+          }    
+        }).done(function() {
+          //btnAdded.disabled = false;
+          console.log('done');
+        }).fail(function(jqXHR, textStatus, error) {
+          console.log('failed');
+          console.log(error);
+          //btnAdded.disabled = false;
+        });
+    });
+    
+    
+    
+  } catch (err) {
+    console.log(err.message);
   }
 }
 
-function addFollowLinks() {
-
+function addColonizeLink() {
+  console.log(".colony.yaml found");
   //var links=0;
-  $('a[data-testid="fb-ufi-likelink"]').each( function( index, element ){
-      //links+=1;
-      addFollowLinkToNode($(this));
+  var btnAdded = document.getElementById('colonizeBtn');
+  if (btnAdded)
+    return;
+
+  var nav = $('.file-navigation');
+  var thisRepo = window.location.pathname.substring(1).replace('/', '%2F');
+  var colonyBtn = '<a id="colonizeBtn" class="btn ml-2 d-none d-md-block" data-pjax="true" style="background-color:#6f42c1;">Colonize</a>';
+  nav.append(colonyBtn);
+
+  html = '<h2 class="swal2-title" style="display:block ruby;font-size:26px;text-align:center">Deploy with CloudShell Colony</h2><br/><br/>';
+  html+= '<span class="has-text-left" style="display:flex">Please provide the following information:</span><br/><br/>';
+  html+= '<div class="columns" style="display:flex;justify-content:space-between">';
+  html+= '<div class="column has-text-left is-two-thirds">';
+  html+= 'Duration (minutes): ';
+  html+= '</div>';
+  html+= '<div class="column has-text-right">';
+  html+= '<input type="text" id="sandbox_duration" style="width:100px !important;" onfocus="this.select()" value="25"></input><br/><br/>';
+  html+= '</div>';
+  html+= '</div>';
+                    
+  $('#colonizeBtn').on('click', function(e) {
+      const { value: text } = Swal.fire({
+        html: html,
+        // title: "Deploy with CloudShell Colony",
+        showCancelButton: true,
+        showClass: { popup: 'animated fadeIn faster' },
+        hideClass: { popup: 'animated fadeOut faster' },
+        preConfirm: () => {
+            return [
+              document.getElementById('sandbox_duration').value,              
+            ]
+        },
+        confirmButtonText: "Start",
+        confirmButtonColor: '#6f42c1'        
+      }).then(function(response) {
+        if (response.isConfirmed) {
+            if (response.value) {
+              //console.log(response.value[0]);
+              colonize(thisRepo, response.value[0]);
+            }
+        }
+      });
   });
-  $('a[data-testid="fb-ufi-unlikelink"]').each( function( index, element ){
-      //links+=1;
-      addUnFollowLinkToNode($(this));
-  });
-  //console.log('links added: ' + links.toString());
 
 }
 
 function waitForEl(selector, callback){
     var poller1 = setInterval(function(){
         $jObject = $(selector);
-        //$jObject = $('div[role="main"]');
         if($jObject.length < 1){
             return;
         }
@@ -110,62 +186,17 @@ function waitForEl(selector, callback){
 
 waitForEl(monitoring_selector, function() {
   // work the magic
-  detectLang();
-  addFollowLinks();
-  setTimeout(watchPageForChange(),1000);
+  addColonizeLink();
+  // setTimeout(watchPageForChange(),1000);
 });
 
-function watchPageForChange(){
-  MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
-
-	var observer = new MutationObserver(function(mutations, observer) {
-	    // fired when a mutation occurs
-	    mutations.forEach(function(mutation) {
-	        if(mutation.type == "childList"){
-            try {
-				      loaded = mutation.addedNodes[0].childNodes[0].childNodes[0].childNodes;
-				      if(loaded.length > 0){
-				    	  addFollowLinks();
-				      }
-				    }
-				    catch(err) {
-              //console.log(err);
-				    }
-			    }
-	    });
-	});
-
-	observer.observe($(monitoring_selector)[0], {
-	  subtree: true,
-	  childList: true
-	});
-}
-
-
-function addFollowLinkToSubNode(node_id) {
-  var flinks=0;
-  var ulinks=0;
-  node_id = node_id.replace(/:/g,'\\:');
-  //console.log('node id:' + node_id);
-  $('#'+node_id).find('a[data-testid="fb-ufi-likelink"]').each( function( index, element ){
-      flinks+=1;
-      addFollowLinkToNode($(this));
-  });
-  $('#'+node_id).find('a[data-testid="fb-ufi-unlikelink"]').each( function( index, element ){
-      ulinks+=1;
-      addUnFollowLinkToNode($(this));
-  });
-  //console.log('follow links added: ' + flinks.toString());
-  //console.log('unfollow links added: ' + ulinks.toString());
-}
 
 browser.runtime.onMessage.addListener(request => {
 
   if (request.type === 'getDoc') {
       waitForEl(monitoring_selector, function() {
-        detectLang();
-        addFollowLinks();
-        setTimeout(watchPageForChange(),1000);
+        addColonizeLink();
+        // setTimeout(watchPageForChange(),1000);
       });
 
       response(document);
